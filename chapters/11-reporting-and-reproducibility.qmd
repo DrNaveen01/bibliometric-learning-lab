@@ -1,0 +1,122 @@
+# Reporting and reproducibility
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Preserve every analytical decision required to reproduce a map.
+- Report bibliometric methods without overstating conclusions.
+- Create a minimum quality-assurance checklist.
+:::
+
+## Reproducible project layers
+
+| Layer | Retain |
+|---|---|
+| Raw data | Original exports and checksums |
+| Search | Full strings, dates, platforms, filters, counts |
+| Screening | Decisions, reasons, reviewers, conflict resolution |
+| Cleaning | Dictionaries, mappings, duplicate log |
+| Parameters | Fields, thresholds, algorithms, normalisation, seed |
+| Derived data | Cleaned records, networks, membership tables |
+| Outputs | Figures, tables, and validation sheets |
+| Environment | R, package, Quarto, and operating-system versions |
+
+## Lock the analytical environment
+
+```r
+install.packages("renv")
+renv::init()
+renv::snapshot()
+```
+
+Record the session:
+
+```{r}
+#| label: reproducibility-session
+
+sessionInfo()
+```
+
+This matters because thematic algorithms and returned objects can change between package versions.
+
+## Parameter register
+
+```{r}
+#| label: reproducibility-parameters
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+M <- M |>
+  dplyr::mutate(
+    DE = stringr::str_to_upper(stringr::str_squish(DE)),
+    ID = stringr::str_to_upper(stringr::str_squish(ID))
+  )
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+tm <- bibliometrix::thematicMap(
+  M = M,
+  field = "KW_Merged",
+  n = 100,
+  minfreq = 5,
+  ngrams = 1,
+  stemming = FALSE,
+  size = 0.7,
+  n.labels = 3,
+  community.repulsion = 0,
+  repel = TRUE,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  subgraphs = TRUE,
+  alpha = 0.5,
+  seed = 20261126
+)
+
+tm$params
+```
+
+Export this table with every final map.
+
+## Minimum validation checks
+
+```{r}
+#| label: reproducibility-checks
+
+validation_checks <- tibble::tribble(
+  ~check, ~expected,
+  "Unique DOI among non-missing DOI values", TRUE,
+  "Publication year within protocol range", TRUE,
+  "All included records have title", TRUE,
+  "Thematic field completeness reported", TRUE,
+  "Cited-reference completeness reported", TRUE,
+  "Cluster labels checked by two reviewers", TRUE,
+  "Sensitivity analysis completed", TRUE,
+  "Citation snapshot date reported", TRUE,
+  "Package versions retained", TRUE
+)
+
+validation_checks
+```
+
+## Suggested methods wording
+
+> Bibliographic records were converted into a standard bibliographic data frame using the `bibliometrix` R package. Author and indexed keywords were audited and harmonised using a prespecified thesaurus. Query-defining drug terms were removed from clustering because they did not discriminate among topics. The conceptual structure was examined using an association-strength-normalised keyword co-occurrence network and community detection. Themes were positioned by centrality and density, and automatic labels were verified against leading terms and high-membership publications. Sensitivity analyses varied the keyword field, term threshold, number of retained terms, and clustering algorithm. Package versions, seeds, parameter tables, and cleaning dictionaries were retained.
+
+Adapt this wording to the actual procedure. Never claim independent dual review, prespecification, or full-text verification unless it occurred.
+
+## Reporting guidance
+
+Use BIBLIO as preliminary bibliometric reporting guidance and PRISMA-S for applicable search-reporting elements [@montazeri2023; @rethelefsen2021]. Neither checklist replaces a study-specific protocol.
+
+## Claims to avoid
+
+- “The most cited article was the best study.”
+- “The lower-left topic is definitely emerging.”
+- “A country produced the study participants.”
+- “No funding metadata means no funding.”
+- “The cluster proves a causal relationship.”
+- “Low publication volume proves an unmet clinical need.”
+
+## Exercise
+
+Audit one published bibliometric paper using the validation checks above. Identify one missing parameter that prevents exact replication.
+

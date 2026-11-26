@@ -1,0 +1,66 @@
+---
+title: "Bibliometric Analysis Learning Lab"
+---
+
+# Purpose
+
+This project is a complete learning and teaching environment for reproducible bibliometric analysis in R. It moves from raw bibliographic exports to defensible interpretation and reporting.
+
+The worked example uses a deterministic, synthetic ferric carboxymaltose (FCM) research corpus. It is designed to reproduce the metadata structure and analytical problems of a real drug-specific bibliometric study without distributing licensed Scopus or Web of Science records.
+
+::: {.callout-note}
+Every core analysis calls the original package function directly, such as
+`bibliometrix::thematicMap()` or `bibliometrix::biblioNetwork()`. The project
+does not hide analytical settings inside custom wrapper functions. Custom code
+is restricted to generating and loading the synthetic teaching corpus.
+:::
+
+## What this course covers
+
+1. Importing and auditing bibliographic records.
+2. Deduplication and metadata cleaning.
+3. Performance analysis.
+4. Co-word thematic mapping.
+5. Longitudinal thematic evolution.
+6. Bibliographic coupling and co-citation.
+7. Author, institution, and country collaboration.
+8. Direct-citation historiography.
+9. Linking themes to clinical populations, study designs, and funding.
+10. Validation, reporting, and reproducibility.
+
+## Learning outcomes
+
+After completing the project, a learner should be able to:
+
+- select an appropriate bibliographic database and export format;
+- explain the difference between performance analysis and science mapping;
+- distinguish co-word analysis, bibliographic coupling, co-citation, collaboration, and direct citation;
+- construct and validate a thematic map;
+- interpret centrality, density, theme evolution, splits, and merges;
+- avoid treating automatic cluster labels as clinical conclusions;
+- build a reproducible R and Quarto workflow; and
+- teach the workflow using the included slides, exercises, and instructor guide.
+
+## Recommended sequence
+
+Complete Chapters 1–4 before attempting network analysis. Chapters 5–10 contain the main applied methods. Chapters 11–13 convert the analysis into a report, capstone assessment, and teaching programme.
+
+::: {.callout-important}
+Bibliometric software identifies statistical structures in metadata. Clinical meaning, eligibility, theme names, funding verification, and interpretation remain reviewer decisions.
+:::
+
+## Quick start
+
+```bash
+Rscript install_packages.R
+quarto preview
+```
+
+To render the workshop slides:
+
+```bash
+quarto render slides/workshop.qmd
+```
+
+The analysis uses `bibliometrix` and follows the general workflow described by @aria2017 and the thematic-evolution framework of @cobo2011evolution.
+

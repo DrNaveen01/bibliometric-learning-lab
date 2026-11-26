@@ -1,0 +1,108 @@
+# Historiography and citation analysis
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Construct a direct-citation historiograph.
+- Distinguish local from global citations.
+- Interpret citations without treating them as evidence quality.
+:::
+
+## Direct citation versus co-citation
+
+A direct-citation network links a publication to another publication that it cites. It can therefore display a chronological path through the corpus. Co-citation instead links earlier works that are jointly cited by later publications.
+
+## Construct the historical network
+
+```{r}
+#| label: historiography-load
+
+source(here::here("R", "00_setup.R"))
+data("management", package = "bibliometrixData")
+M <- as.data.frame(management)
+
+historical_network <- bibliometrix::histNetwork(M, sep = ";")
+```
+
+```{r}
+#| label: historiography-plot
+
+bibliometrix::histPlot(
+  historical_network,
+  n = 25,
+  size = 6,
+  labelsize = 4
+)
+```
+
+Historiography is highly sensitive to reference matching. Differences in punctuation, author initials, source abbreviations, page numbers, and DOI formatting can prevent a real citation from being recognised.
+
+## Local and global citations
+
+**Local citations** are citations received from publications inside the selected corpus. They show influence within the defined research field.
+
+**Global citations** are citations reported by the database from its wider indexed literature. They show broader database influence but remain database- and date-dependent.
+
+```{r}
+#| label: local-citations
+
+local_citations <- bibliometrix::citations(
+  M,
+  field = "article",
+  sep = ";"
+)
+
+historical_network$histData |>
+  dplyr::filter(LCS > 0) |>
+  dplyr::arrange(dplyr::desc(LCS)) |>
+  dplyr::select(Title, Year, LCS, GCS) |>
+  head(10)
+
+```
+
+## Citation normalisation
+
+```{r}
+#| label: historiography-normalised-citations
+
+normalised <- M |>
+  mutate(
+    citation_window = pmax(1, 2025 - PY + 1),
+    citations_per_year = TC / citation_window
+  ) |>
+  group_by(PY) |>
+  mutate(
+    year_mean_tc = mean(TC, na.rm = TRUE),
+    mean_normalised_tc = if_else(
+      year_mean_tc > 0,
+      TC / year_mean_tc,
+      NA_real_
+    )
+  ) |>
+  ungroup()
+
+normalised |>
+  arrange(desc(mean_normalised_tc)) |>
+  select(SR, PY, TC, citations_per_year, mean_normalised_tc) |>
+  head(15)
+```
+
+Citation rates can be influenced by publication age, journal visibility, document type, research field, open access, self-citation, and database coverage. They do not directly measure risk of bias, treatment effect, or clinical validity.
+
+## Interpretation framework
+
+For every highly cited or structurally central publication, record:
+
+- document type;
+- clinical indication;
+- publication year;
+- local citations;
+- global citations and snapshot date;
+- whether it is a review, guideline, protocol, or original study;
+- whether multiple reports arise from the same trial; and
+- whether a retraction, correction, or expression of concern exists.
+
+## Exercise
+
+Compare the top ten documents by local citations, global citations, and citations per year. Identify at least two reasons for discordance.
+

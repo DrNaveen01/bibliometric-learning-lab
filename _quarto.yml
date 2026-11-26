@@ -1,0 +1,55 @@
+project:
+  type: book
+  output-dir: _book
+
+book:
+  title: "Bibliometric Analysis Learning Lab"
+  subtitle: "A reproducible R and Quarto course for learning, teaching, and applying science mapping"
+  author: "Dr Naveen Suthar"
+  date: last-modified
+  chapters:
+    - index.qmd
+    - chapters/01-orientation.qmd
+    - chapters/02-data-and-import.qmd
+    - chapters/03-audit-and-cleaning.qmd
+    - chapters/04-performance-analysis.qmd
+    - chapters/05-thematic-mapping.qmd
+    - chapters/06-thematic-evolution.qmd
+    - chapters/07-coupling-and-cocitation.qmd
+    - chapters/08-collaboration-networks.qmd
+    - chapters/09-historiography-and-citations.qmd
+    - chapters/10-clinical-overlay-and-validation.qmd
+    - chapters/11-reporting-and-reproducibility.qmd
+    - chapters/12-capstone-project.qmd
+    - chapters/13-instructor-guide.qmd
+    - references.qmd
+  downloads: [pdf]
+
+bibliography: references.bib
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    code-copy: true
+    code-overflow: wrap
+  pdf:
+    documentclass: scrreprt
+    toc: true
+    number-sections: true
+    geometry:
+      - margin=22mm
+
+execute:
+  freeze: auto
+  warning: false
+  message: false
+  echo: true
+
+lang: en-GB
+link-citations: true
+

@@ -1,0 +1,37 @@
+---
+title: "Bibliometric Analysis Learning Lab"
+format: gfm
+execute:
+  echo: false
+---
+
+A reproducible Quarto book, R workflow, teaching deck, exercises, and capstone project for bibliometric analysis and science mapping.
+
+## Included
+
+- Thirteen step-by-step chapters.
+- Deterministic FCM-like demonstration data.
+- Import templates for Scopus and Web of Science.
+- Performance, thematic, coupling, co-citation, collaboration, and historiographic analyses.
+- Clinical and funding overlays using graded theme membership.
+- Workshop slides, learner worksheet, solutions, and instructor guide.
+- GitHub Actions workflow for automatic rendering.
+- Package-native teaching code: core analyses call `bibliometrix`, `dplyr`,
+  `tidyr`, and `ggplot2` functions directly rather than project wrappers.
+
+## Start
+
+```bash
+Rscript install_packages.R
+quarto preview
+```
+
+Render the slides with `quarto render slides/workshop.qmd`.
+
+## Data licence
+
+The included dataset is synthetic. Place licensed database exports in `data-raw/` and do not redistribute them unless permitted.
+
+The only custom code generates and loads the synthetic teaching corpus. It
+does not modify the bibliometric methods shown in the chapters.
+

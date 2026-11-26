@@ -1,0 +1,203 @@
+# Co-word thematic mapping
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Explain how terms become themes.
+- Interpret centrality, density, and theme size.
+- Construct, inspect, and validate a thematic map.
+- Test whether themes are stable under alternative defensible settings.
+:::
+
+## Analytical mechanism
+
+A thematic map is produced through the following sequence:
+
+1. Select a textual field such as author keywords.
+2. Construct a document-by-term matrix.
+3. Calculate term co-occurrence.
+4. Normalise the co-occurrence network.
+5. Detect communities of related terms.
+6. Treat each community as a provisional theme.
+7. position themes by centrality and density.
+
+Current versions of `bibliometrix` use association-strength normalisation and graded document-theme membership. A document can contribute to several themes rather than being treated as conceptually pure [@aria2026evolution].
+
+## Strategic diagram
+
+| Position | Interpretation | Required caution |
+|---|---|---|
+| High centrality, high density | Motor theme | Central and internally developed |
+| High centrality, low density | Basic or transversal theme | Broad and important but heterogeneous |
+| Low centrality, high density | Niche theme | Mature internally but peripheral |
+| Low centrality, low density | Emerging, declining, weak, or noisy | Requires temporal evidence |
+
+The axes are relative to the observed corpus. They do not provide absolute measures of clinical importance.
+
+## Construct the primary map
+
+```{r}
+#| label: thematic-load
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data() |>
+  mutate(
+    DI = na_if(tolower(trimws(DI)), ""),
+    TI = str_squish(TI),
+    AU = str_to_upper(str_squish(AU))
+  )
+
+M <- M[!duplicated(M$DI) | is.na(M$DI), , drop = FALSE]
+title_year <- paste(tolower(trimws(M$TI)), M$PY)
+M <- tibble::as_tibble(M[!duplicated(title_year), , drop = FALSE])
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+```
+
+```{r}
+#| label: thematic-primary
+M <- M |>
+  dplyr::mutate(
+    DE = stringr::str_to_upper(stringr::str_squish(DE)),
+    ID = stringr::str_to_upper(stringr::str_squish(ID))
+  )
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+tm <- thematic <- bibliometrix::thematicMap(
+  M = M,
+  field = "KW_Merged",
+  n = 100,
+  minfreq = 5,
+  ngrams = 1,
+  stemming = FALSE,
+  size = 0.7,
+  n.labels = 3,
+  community.repulsion = 0,
+  repel = TRUE,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  subgraphs = TRUE,
+  alpha = 0.5,
+  seed = 20261126
+)
+
+tm$map
+```
+
+In current `bibliometrix`, `minfreq` for `thematicMap()` is interpreted per 1,000 documents, with an absolute minimum occurrence of two. Report both the supplied value and the resulting retained terms.
+
+`community_repulsion = 0` avoids a known layout-stage failure that can occur when the internal graph contains duplicated vertex names. This argument affects the optional network layout adjustment, not the detection of thematic communities or their position on the strategic thematic map.
+
+## Inspect cluster statistics
+
+```{r}
+#| label: thematic-clusters
+
+tm$clusters |>
+  arrange(desc(rcentrality))
+```
+
+The cluster table contains centrality, density, and fuzzy cardinality. Fuzzy cardinality is the sum of document memberships assigned to the theme; it is preferable to treating every document as exclusively assigned to one cluster.
+
+## Inspect the terms within themes
+
+```{r}
+#| label: thematic-top-terms
+
+tm$words |>
+  arrange(Cluster, desc(Cluster_PageRank), desc(Occurrences)) |>
+  group_by(Cluster, Cluster_Label) |>
+  slice_head(n = 10) |>
+  ungroup()
+```
+
+An automatic label is a computational summary, not a clinically approved theme name. Review both frequency and within-cluster PageRank.
+
+## Inspect representative documents
+
+```{r}
+#| label: thematic-membership
+
+membership <- tm$documentToClusters
+names(membership)
+head(membership)
+```
+
+For each cluster:
+
+1. Identify documents with the highest membership.
+2. Read their titles and abstracts.
+3. Check the clinical indication and study design.
+4. Assign a provisional clinical label.
+5. Have a second reviewer check the label.
+
+## Validation table
+
+Create one row per theme:
+
+| Field | Description |
+|---|---|
+| Automatic label | Label returned by the algorithm |
+| Proposed label | Reviewer-generated clinical label |
+| Top terms | Ten terms ranked by within-cluster PageRank |
+| Representative papers | Five to ten high-membership documents |
+| Dominant indication | Clinical content after manual inspection |
+| Quadrant | Motor, basic, niche, or lower-left |
+| Reviewer agreement | Agreed, revised, or unresolved |
+| Rationale | Reason for the final label |
+
+## Sensitivity analysis
+
+```{r}
+#| label: thematic-sensitivity
+#| eval: false
+
+parameter_grid <- tidyr::crossing(
+  field = c("DE", "KW_Merged"),
+  n = c(75, 100, 150),
+  minfreq = c(5, 10),
+  cluster = c("louvain", "leiden")
+)
+
+sensitivity_maps <- purrr::pmap(
+  parameter_grid,
+  function(field, n, minfreq, cluster) {
+    bibliometrix::thematicMap(
+      M = M,
+      field = field,
+      n = n,
+      minfreq = minfreq,
+      ngrams = 1,
+      stemming = FALSE,
+      size = 0.7,
+      n.labels = 3,
+      community.repulsion = 0,
+      repel = TRUE,
+      remove.terms = fcm_remove_terms,
+      synonyms = fcm_synonyms,
+      cluster = cluster,
+      subgraphs = TRUE,
+      alpha = 0.5,
+      seed = 20261126
+    )
+  }
+)
+
+sensitivity_summary <- parameter_grid |>
+  mutate(
+    number_clusters = map_int(sensitivity_maps, "nclust"),
+    modularity = map_dbl(sensitivity_maps, "modularity")
+  )
+```
+
+Do not select settings because they produce the most attractive plot. Identify which substantive themes remain recognisable across plausible settings.
+
+## Exercise
+
+Generate maps using `DE` and `KW_Merged`. Compare:
+
+- number of retained terms;
+- number of themes;
+- labels and leading terms;
+- quadrant positions; and
+- whether the same clinical areas are identifiable.
+

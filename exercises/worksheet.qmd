@@ -1,0 +1,76 @@
+---
+title: "Bibliometric Analysis Learner Worksheet"
+format:
+  html: default
+  pdf: default
+execute:
+  eval: false
+---
+
+# Part A: Method selection
+
+For each question, name the method, unit of analysis, and required field.
+
+1. Which recent FCM papers address similar clinical questions?
+2. Which earlier publications form the intellectual base?
+3. Which concepts are central and internally developed?
+4. Which countries collaborate?
+5. How did hypophosphataemia research emerge?
+6. Which publications form a chronological direct-citation pathway?
+
+# Part B: Data audit
+
+```r
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+```
+
+7. Report the number of records, fields, and publication years.
+8. Calculate completeness of `DE`, `ID`, `AB`, `CR`, `C1`, and `DI`.
+9. Check duplicate DOI and title-year combinations.
+10. Explain which analyses would be weakened if `CR` were 50% missing.
+
+# Part C: Cleaning
+
+11. Review `fcm_synonyms`. Identify one questionable mapping.
+12. Add two justified synonym mappings.
+13. Explain why `ferric carboxymaltose` should be removed from clustering but not from eligibility.
+14. Create `KW_Merged` and compare its completeness with `DE`.
+
+# Part D: Performance analysis
+
+15. Plot annual publication output.
+16. Produce a table of publication counts by indication and period.
+17. Compare the highest raw citation counts with citations per year.
+18. State two reasons why citation count does not equal quality.
+
+# Part E: Thematic mapping
+
+19. Construct the primary thematic map using `KW_Merged`.
+20. Export the cluster and term tables.
+21. Assign a reviewer-generated label to each theme.
+22. Repeat the map using `DE` and compare the results.
+23. Explain one difference caused by field selection.
+
+# Part F: Evolution and networks
+
+24. Construct a thematic-evolution plot.
+25. Identify one continuation, appearance, split, or merge.
+26. Construct document coupling and reference co-citation networks.
+27. Explain why their clusters differ.
+28. Construct a country collaboration network.
+29. Compare whole and fractional country counts.
+
+# Part G: Clinical integration
+
+30. Create a weighted theme-by-indication table.
+31. Create a weighted theme-by-funding table.
+32. Identify one multidisciplinary theme.
+33. Explain why the funding result is descriptive rather than causal.
+
+# Part H: Reporting
+
+34. Write a 150-word methods paragraph containing the exact thematic-map parameters.
+35. List five files or objects that must be archived for reproducibility.
+36. State one supported and one unsupported conclusion from each final figure.
+

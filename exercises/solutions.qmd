@@ -1,0 +1,229 @@
+---
+title: "Bibliometric Analysis Exercise Solutions"
+format:
+  html: default
+  pdf: default
+execute:
+  echo: true
+---
+
+# Part A
+
+1. Bibliographic coupling; corpus documents; `CR`.
+2. Reference co-citation; cited references; `CR`.
+3. Co-word thematic mapping; terms; `DE`, `ID`, or `KW_Merged`.
+4. Country collaboration; affiliation countries; `C1` or `AU_CO`.
+5. Thematic evolution plus term growth; terms and `PY`.
+6. Historiography; direct citations; `CR`, `PY`, and document identifiers.
+
+# Parts B–G: Reference workflow
+
+```{r}
+#| label: solutions-setup
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+
+dim(M)
+range(M$PY)
+
+audit_fields <- c("DE", "ID", "AB", "CR", "C1", "DI")
+M |>
+  summarise(
+    across(
+      all_of(audit_fields),
+      ~ sum(!is.na(.x) & nzchar(trimws(as.character(.x))))
+    )
+  ) |>
+  pivot_longer(everything(), names_to = "field", values_to = "available") |>
+  mutate(
+    total = nrow(M),
+    percent_available = round(100 * available / total, 1)
+  )
+```
+
+```{r}
+#| label: solutions-duplicates
+
+sum(duplicated(M$DI[!is.na(M$DI)]))
+sum(duplicated(paste(tolower(M$TI), M$PY)))
+```
+
+If `CR` is substantially missing, coupling, co-citation, local-citation, and historiographic analyses become incomplete and potentially biased.
+
+The acronym mappings such as `rct`, `ckd`, and `ibd` require corpus-context review because an acronym can be ambiguous outside a narrowly defined biomedical corpus. A mapping should be removed when the same abbreviation is used for more than one concept.
+
+```{r}
+#| label: solutions-keywords
+
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+
+keyword_fields <- c("DE", "ID", "KW_Merged")
+M |>
+  summarise(
+    across(
+      all_of(keyword_fields),
+      ~ sum(!is.na(.x) & nzchar(trimws(as.character(.x))))
+    )
+  ) |>
+  pivot_longer(everything(), names_to = "field", values_to = "available") |>
+  mutate(
+    total = nrow(M),
+    percent_available = round(100 * available / total, 1)
+  )
+```
+
+The drug name is removed from clustering because it occurs across the corpus and contributes little discrimination. It remains part of eligibility and the raw data.
+
+```{r}
+#| label: solutions-performance
+
+annual <- M |> count(PY)
+
+ggplot(annual, aes(PY, n)) +
+  geom_col(fill = "#2c7fb8")
+
+M |>
+  mutate(period = cut(PY, c(2007, 2013, 2018, 2022, 2025))) |>
+  count(period, INDICATION)
+```
+
+```{r}
+#| label: solutions-citations
+
+M |>
+  mutate(
+    citation_window = pmax(1, 2025 - PY + 1),
+    citations_per_year = TC / citation_window
+  ) |>
+  group_by(PY) |>
+  mutate(
+    year_mean_tc = mean(TC, na.rm = TRUE),
+    mean_normalised_tc = if_else(
+      year_mean_tc > 0,
+      TC / year_mean_tc,
+      NA_real_
+    )
+  ) |>
+  ungroup() |>
+  arrange(desc(citations_per_year)) |>
+  select(SR, PY, TC, citations_per_year) |>
+  head(10)
+```
+
+Citation counts reflect exposure time, database coverage, visibility, document type, and citation practices. They do not directly measure risk of bias or clinical validity.
+
+```{r}
+#| label: solutions-thematic
+
+tm <- bibliometrix::thematicMap(
+  M = M,
+  field = "KW_Merged",
+  n = 100,
+  minfreq = 5,
+  ngrams = 1,
+  stemming = FALSE,
+  size = 0.7,
+  n.labels = 3,
+  community.repulsion = 0,
+  repel = TRUE,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  subgraphs = TRUE,
+  alpha = 0.5,
+  seed = 20261126
+)
+tm$map
+tm$clusters
+tm$words |>
+  arrange(Cluster, desc(Cluster_PageRank), desc(Occurrences)) |>
+  group_by(Cluster, Cluster_Label) |>
+  slice_head(n = 10) |>
+  ungroup()
+```
+
+```{r}
+#| label: solutions-thematic-de
+
+tm_de <- bibliometrix::thematicMap(
+  M = M,
+  field = "DE",
+  n = 100,
+  minfreq = 5,
+  ngrams = 1,
+  stemming = FALSE,
+  size = 0.7,
+  n.labels = 3,
+  community.repulsion = 0,
+  repel = TRUE,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  subgraphs = TRUE,
+  alpha = 0.5,
+  seed = 20261126
+)
+tm_de$map
+```
+
+Field choice may change term coverage, cluster membership, labels, and quadrant positions. The substantive interpretation should focus on themes stable across defensible specifications.
+
+```{r}
+#| label: solutions-evolution
+
+te <- bibliometrix::thematicEvolution(
+  M,
+  field = "KW_Merged",
+  years = c(2013, 2018, 2022),
+  n = 100,
+  minFreq = 3,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  seed = 20261126
+)
+
+bibliometrix::plotThematicEvolution(te$Nodes, te$Edges, min.flow = 0.10)
+```
+
+```{r}
+#| label: solutions-overlays
+
+theme_columns <- intersect(tm$clusters$name, names(tm$documentToClusters))
+
+membership_long <- tm$documentToClusters |>
+  select(SR, all_of(theme_columns)) |>
+  pivot_longer(
+    cols = all_of(theme_columns),
+    names_to = "theme",
+    values_to = "membership"
+  )
+
+membership_long |>
+  left_join(M |> select(SR, INDICATION), by = "SR") |>
+  filter(!is.na(INDICATION)) |>
+  group_by(theme, INDICATION) |>
+  summarise(weighted_documents = sum(membership, na.rm = TRUE), .groups = "drop") |>
+  group_by(theme) |>
+  mutate(percent_within_theme = 100 * weighted_documents / sum(weighted_documents)) |>
+  ungroup()
+
+membership_long |>
+  left_join(M |> select(SR, FUNDING_TYPE), by = "SR") |>
+  filter(!is.na(FUNDING_TYPE)) |>
+  group_by(theme, FUNDING_TYPE) |>
+  summarise(weighted_documents = sum(membership, na.rm = TRUE), .groups = "drop") |>
+  group_by(theme) |>
+  mutate(percent_within_theme = 100 * weighted_documents / sum(weighted_documents)) |>
+  ungroup()
+```
+
+The funding analysis describes how disclosed categories are distributed across themes. It does not establish that funding caused a theme, outcome, or publication decision.
+
+# Part H: Model methods paragraph
+
+Bibliographic records were converted to a standard bibliographic data frame and audited for missing fields and duplicates. Author and indexed keywords were merged and harmonised using a prespecified synonym dictionary. Query-defining FCM terms were excluded from clustering because they did not discriminate among topics. A co-word thematic map was generated from `KW_Merged`, retaining 100 terms and using a `minfreq` value of 5. The association-strength-normalised network was clustered using the Louvain algorithm with a fixed seed of 20261126. Themes were positioned according to centrality and density. Automatic cluster labels were checked against the ten highest-ranking terms and high-membership documents. Sensitivity analyses repeated the map using author keywords, alternative term counts, frequency thresholds, and Leiden clustering. Package versions and returned parameter tables were retained.
+
+Files to archive include raw exports, search log, screening decisions, cleaning dictionary, analysis scripts, parameter register, derived membership tables, figures, and `sessionInfo()`.
+

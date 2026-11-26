@@ -1,0 +1,151 @@
+# Collaboration and geographic networks
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Construct author and country collaboration networks.
+- Distinguish affiliation geography from recruitment geography.
+- Compare whole and fractional publication counting.
+:::
+
+## Collaboration relation
+
+A collaboration network represents co-occurrence of authors, institutions, or countries on publications. It describes publication relationships, not the quality, equality, or intensity of the underlying collaboration.
+
+```{r}
+#| label: collaboration-load
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+
+collaboration_fields <- c("AU", "C1", "AU_CO", "AU_UN")
+
+M |>
+  summarise(
+    across(
+      all_of(collaboration_fields),
+      ~ sum(!is.na(.x) & nzchar(trimws(as.character(.x))))
+    )
+  ) |>
+  pivot_longer(everything(), names_to = "field", values_to = "available") |>
+  mutate(
+    total = nrow(M),
+    percent_available = round(100 * available / total, 1)
+  )
+```
+
+For a real database export, extract countries and institutions from affiliations:
+
+```r
+M <- bibliometrix::metaTagExtraction(M, Field = "AU_CO", sep = ";")
+M <- bibliometrix::metaTagExtraction(M, Field = "AU_UN", sep = ";")
+```
+
+## Country collaboration
+
+```{r}
+#| label: country-collaboration
+
+country_matrix <- bibliometrix::biblioNetwork(
+  M,
+  analysis = "collaboration",
+  network = "countries",
+  sep = ";"
+)
+
+country_plot <- bibliometrix::networkPlot(
+  country_matrix,
+  normalize = "association",
+  weighted = TRUE,
+  n = min(30, nrow(country_matrix)),
+  Title = "Country collaboration network",
+  type = "fruchterman",
+  size = 5,
+  size.cex = TRUE,
+  remove.multiple = FALSE,
+  labelsize = 0.7,
+  community.repulsion = 0,
+  seed = 20261126
+)
+
+country_statistics <- bibliometrix::networkStat(country_matrix)
+```
+
+## Author collaboration
+
+```{r}
+#| label: author-collaboration
+
+author_matrix <- bibliometrix::biblioNetwork(
+  M,
+  analysis = "collaboration",
+  network = "authors",
+  sep = ";"
+)
+
+author_plot <- bibliometrix::networkPlot(
+  author_matrix,
+  normalize = "association",
+  weighted = TRUE,
+  n = min(35, nrow(author_matrix)),
+  Title = "Author collaboration network",
+  type = "fruchterman",
+  size = 5,
+  size.cex = TRUE,
+  remove.multiple = FALSE,
+  labelsize = 0.7,
+  community.repulsion = 0,
+  seed = 20261126
+)
+
+author_statistics <- bibliometrix::networkStat(author_matrix)
+```
+
+Author-name disambiguation must be checked before interpreting centrality. Initials, name changes, transliteration, and database indexing errors can split or merge identities.
+
+## Whole and fractional country counts
+
+Under whole counting, every contributing country receives one publication. Under fractional counting, a paper with `k` countries contributes `1/k` to each.
+
+```{r}
+#| label: country-counting
+
+country_counts <- M |>
+  select(SR, AU_CO) |>
+  separate_rows(AU_CO, sep = ";") |>
+  mutate(AU_CO = str_squish(AU_CO)) |>
+  group_by(SR) |>
+  mutate(
+    number_countries = n_distinct(AU_CO),
+    fractional_weight = 1 / number_countries
+  ) |>
+  ungroup() |>
+  group_by(country = AU_CO) |>
+  summarise(
+    whole_count = n_distinct(SR),
+    fractional_count = sum(fractional_weight),
+    .groups = "drop"
+  ) |>
+  arrange(desc(whole_count))
+
+country_counts
+```
+
+Use whole counting as an easily understood primary summary and fractional counting as a sensitivity analysis, or reverse the order if contribution allocation is central to the research question.
+
+## Affiliation is not recruitment
+
+The country in an author's affiliation must not be interpreted as the country where participants were recruited. Use a separately extracted `RECRUITMENT_COUNTRY` variable from full reports or trial registries.
+
+```{r}
+#| label: recruitment-geography
+
+M |>
+  separate_rows(RECRUITMENT_COUNTRY, sep = ";") |>
+  count(RECRUITMENT_COUNTRY, sort = TRUE)
+```
+
+## Exercise
+
+Identify a country whose whole-count rank differs materially from its fractional-count rank. Explain the collaboration pattern that produces the difference.
+

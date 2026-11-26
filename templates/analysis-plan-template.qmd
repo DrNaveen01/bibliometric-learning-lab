@@ -1,0 +1,45 @@
+---
+title: "Bibliometric Analysis Plan"
+format:
+  html: default
+  pdf: default
+---
+
+# Research question
+
+# Objectives
+
+# Eligibility criteria
+
+# Databases and search strategy
+
+# Screening and deduplication
+
+# Metadata cleaning
+
+# Performance analysis
+
+# Science-mapping analyses
+
+## Thematic mapping
+
+## Thematic evolution
+
+## Bibliographic coupling
+
+## Co-citation
+
+## Collaboration
+
+## Historiography
+
+# Clinical-content coding
+
+# Funding verification
+
+# Sensitivity analyses
+
+# Validation checks
+
+# Reporting and reproducibility
+

@@ -1,0 +1,170 @@
+# Clinical overlays and theme validation
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Link graded theme membership with manually coded clinical variables.
+- Produce weighted theme-by-indication and theme-by-funding summaries.
+- Separate algorithmic discovery from clinical verification.
+:::
+
+## Why metadata-only mapping is insufficient
+
+Keywords can reveal conceptual structure but may not reliably distinguish participant populations, recruitment countries, study designs, sponsor responsibilities, or linked trial reports. These variables require structured content extraction.
+
+The project therefore combines two layers:
+
+1. **Data-driven layer:** co-word clusters and graded document-theme membership.
+2. **Reviewer-coded layer:** indication, population, design, focus, funding, and recruitment location.
+
+## Construct the thematic result
+
+```{r}
+#| label: overlay-load
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+
+M <- M |>
+  dplyr::mutate(
+    DE = stringr::str_to_upper(stringr::str_squish(DE)),
+    ID = stringr::str_to_upper(stringr::str_squish(ID))
+  )
+
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+
+tm <- bibliometrix::thematicMap(
+  M = M,
+  field = "KW_Merged",
+  n = 100,
+  minfreq = 5,
+  ngrams = 1,
+  stemming = FALSE,
+  size = 0.7,
+  n.labels = 3,
+  community.repulsion = 0,
+  repel = TRUE,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  subgraphs = TRUE,
+  alpha = 0.5,
+  seed = 20261126
+)
+```
+
+## Convert membership to long format
+
+```{r}
+#| label: overlay-membership-long
+
+theme_columns <- intersect(
+  tm$clusters$name,
+  names(tm$documentToClusters)
+)
+
+membership_long <- tm$documentToClusters |>
+  select(SR, all_of(theme_columns)) |>
+  pivot_longer(
+    cols = all_of(theme_columns),
+    names_to = "theme",
+    values_to = "membership"
+  )
+
+membership_long |>
+  arrange(SR, desc(membership)) |>
+  head(12)
+```
+
+Each document's membership is distributed across themes. This avoids treating multidisciplinary publications as belonging exclusively to one cluster.
+
+## Theme by clinical indication
+
+```{r}
+#| label: overlay-indication
+
+theme_indication <- membership_long |>
+  left_join(M |> select(SR, INDICATION), by = "SR") |>
+  filter(!is.na(INDICATION)) |>
+  group_by(theme, INDICATION) |>
+  summarise(
+    weighted_documents = sum(membership, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  group_by(theme) |>
+  mutate(
+    percent_within_theme = 100 * weighted_documents / sum(weighted_documents)
+  ) |>
+  ungroup()
+
+theme_indication
+```
+
+```{r}
+#| label: overlay-indication-heatmap
+
+ggplot(
+  theme_indication,
+  aes(INDICATION, theme, fill = percent_within_theme)
+) +
+  geom_tile(colour = "white") +
+  scale_fill_viridis_c(option = "C", name = "% within\ntheme") +
+  labs(
+    x = "Clinical indication",
+    y = "Bibliometric theme",
+    title = "Clinical composition of bibliometric themes"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Theme by funding category
+
+```{r}
+#| label: overlay-funding
+
+theme_funding <- membership_long |>
+  left_join(M |> select(SR, FUNDING_TYPE), by = "SR") |>
+  filter(!is.na(FUNDING_TYPE)) |>
+  group_by(theme, FUNDING_TYPE) |>
+  summarise(
+    weighted_documents = sum(membership, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  group_by(theme) |>
+  mutate(
+    percent_within_theme = 100 * weighted_documents / sum(weighted_documents)
+  ) |>
+  ungroup()
+
+theme_funding
+```
+
+This is descriptive. It does not establish that funding caused theme selection, publication, citation impact, or favourable results.
+
+## Recommended clinical codebook
+
+| Domain | Example categories | Source |
+|---|---|---|
+| Indication | Heart failure, CKD, pregnancy, IBD, perioperative | Full report or abstract |
+| Population | Adult, paediatric, pregnant, postpartum | Full report |
+| Design | RCT, non-randomised intervention, cohort, cross-sectional, review | Methods |
+| Focus | Efficacy, safety, implementation, economics | Objectives and outcomes |
+| Recruitment country | One or more countries | Methods or registry |
+| Funding type | Industry, non-industry, mixed, none, unclear | Funding statement |
+| Sponsor role | Design, analysis, writing, drug supply, unknown | Statement and protocol |
+| Verification | Abstract, full text, supplement, registry | Audit trail |
+
+## Validation procedure
+
+1. Pilot the codebook on 20–30 publications.
+2. Two reviewers independently code the pilot.
+3. Revise unclear categories before full extraction.
+4. Preserve original text and source location.
+5. Record unresolved cases as unclear rather than forcing classification.
+6. Link multiple reports from the same trial before trial-level summaries.
+7. Compare bibliometric themes with the coded clinical categories.
+
+## Exercise
+
+Identify one thematic cluster containing more than one clinical indication. Explain whether the cluster is conceptually coherent or reflects inadequate keyword cleaning.
+

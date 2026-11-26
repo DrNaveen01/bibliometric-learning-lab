@@ -1,0 +1,162 @@
+# Instructor guide
+
+## Intended audience
+
+- Postgraduate medical residents.
+- Faculty and research scholars.
+- Public-health and clinical researchers.
+- Analysts with basic R experience.
+
+Learners should understand data frames, functions, object assignment, pipes, and basic `ggplot2`. No prior network-analysis experience is required.
+
+## Teaching principle
+
+Teach each method through four questions:
+
+1. What relationship is measured?
+2. What metadata are required?
+3. What does the output support?
+4. What does the output not support?
+
+## One-day workshop
+
+| Time | Session | Output |
+|---|---|---|
+| 09:00–09:30 | Orientation and method selection | Method-question matrix |
+| 09:30–10:30 | Import, audit, and cleaning | Clean bibliographic data frame |
+| 10:30–10:45 | Break | — |
+| 10:45–11:30 | Performance analysis | Annual and citation summaries |
+| 11:30–13:00 | Thematic mapping | Primary thematic map |
+| 13:00–14:00 | Lunch | — |
+| 14:00–15:00 | Thematic evolution | Evolution plot and interpretation |
+| 15:00–16:00 | Coupling, co-citation, collaboration | Three network outputs |
+| 16:00–16:15 | Break | — |
+| 16:15–17:00 | Clinical overlays and validation | Theme-validation table |
+| 17:00–17:30 | Assessment and reporting | Five-minute group interpretation |
+
+## Three-day course
+
+### Day 1: Data and descriptive foundations
+
+- Research questions and database selection.
+- Export fields and licensing.
+- Import and metadata audit.
+- Deduplication and thesaurus construction.
+- Performance and citation analysis.
+
+### Day 2: Science mapping
+
+- Co-word networks.
+- Thematic maps.
+- Thematic evolution.
+- Coupling and co-citation.
+- Collaboration and historiography.
+
+### Day 3: Validation and independent work
+
+- Clinical-content coding.
+- Fuzzy membership overlays.
+- Sensitivity analysis.
+- Reporting and reproducibility.
+- Capstone analysis and presentation.
+
+## Live-demonstration sequence
+
+Use the following objects in order:
+
+```r
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+
+audit_fields <- c("AU", "TI", "SO", "DE", "ID", "AB", "CR", "PY", "DI")
+M |>
+  summarise(
+    across(
+      all_of(audit_fields),
+      ~ sum(!is.na(.x) & nzchar(trimws(as.character(.x))))
+    )
+  ) |>
+  pivot_longer(everything(), names_to = "field", values_to = "available")
+
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+results <- bibliometrix::biblioAnalysis(M, sep = ";")
+
+tm <- bibliometrix::thematicMap(
+  M = M,
+  field = "KW_Merged",
+  n = 100,
+  minfreq = 5,
+  ngrams = 1,
+  stemming = FALSE,
+  size = 0.7,
+  n.labels = 3,
+  community.repulsion = 0,
+  repel = TRUE,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  subgraphs = TRUE,
+  alpha = 0.5,
+  seed = 20261126
+)
+
+tm$map
+
+tm$words |>
+  arrange(Cluster, desc(Cluster_PageRank), desc(Occurrences)) |>
+  group_by(Cluster, Cluster_Label) |>
+  slice_head(n = 10) |>
+  ungroup()
+
+theme_columns <- intersect(tm$clusters$name, names(tm$documentToClusters))
+
+tm$documentToClusters |>
+  select(SR, all_of(theme_columns)) |>
+  pivot_longer(
+    cols = all_of(theme_columns),
+    names_to = "theme",
+    values_to = "membership"
+  ) |>
+  left_join(M |> select(SR, INDICATION), by = "SR") |>
+  group_by(theme, INDICATION) |>
+  summarise(weighted_documents = sum(membership), .groups = "drop")
+```
+
+Do not begin with the final map. Learners need to see how metadata cleaning and parameter choices change the network.
+
+## Formative assessment prompts
+
+1. Which method identifies current research fronts?
+2. Why can a lower-left theme be declining rather than emerging?
+3. Which field is required for co-citation?
+4. Why should affiliation and recruitment geography be separated?
+5. Why is the automatic cluster label provisional?
+6. What changes when whole counting is replaced by fractional counting?
+
+## Common learner errors
+
+| Error | Correction |
+|---|---|
+| Selecting the most attractive network | Prespecify and test defensible parameters |
+| Treating citation count as quality | Separate influence from validity |
+| Calling all lower-left themes emerging | Examine time-specific evidence |
+| Using affiliations as recruitment sites | Extract recruitment country separately |
+| Merging clinically different keywords | Maintain a reviewed thesaurus |
+| Interpreting clusters without papers | Inspect high-membership documents |
+| Omitting package versions | Retain `sessionInfo()` and `renv.lock` |
+
+## Summative assessment
+
+Use the capstone rubric in Chapter 12. Require every group to defend one parameter choice and one limitation during the oral presentation.
+
+## Technical contingency
+
+Before teaching:
+
+1. Run `Rscript install_packages.R`.
+2. Run `Rscript R/99_run_all.R`.
+3. Render the book and slides.
+4. Retain generated figures locally.
+5. Provide the project ZIP as a fallback.
+6. Avoid live package installation during the class.
+

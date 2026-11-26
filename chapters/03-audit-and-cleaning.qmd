@@ -1,0 +1,159 @@
+# Metadata audit and cleaning
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Quantify metadata completeness.
+- Remove exact duplicates without deleting unrelated records.
+- Construct an auditable thesaurus for thematic analysis.
+:::
+
+## Audit before analysis
+
+```{r}
+#| label: audit-load
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+
+audit_fields <- intersect(
+  c("AU", "TI", "SO", "DE", "ID", "AB", "CR", "PY", "DI"),
+  names(M)
+)
+
+metadata_audit <- M |>
+  summarise(
+    across(
+      all_of(audit_fields),
+      ~ sum(!is.na(.x) & nzchar(trimws(as.character(.x))))
+    )
+  ) |>
+  pivot_longer(everything(), names_to = "field", values_to = "available") |>
+  mutate(
+    total = nrow(M),
+    percent_available = round(100 * available / total, 1)
+  )
+
+metadata_audit
+```
+
+The audit must precede network construction. A visually attractive map cannot repair systematically missing keywords, affiliations, or cited references.
+
+## Deduplication sequence
+
+Use a staged procedure:
+
+1. Exact database identifier.
+2. Exact DOI after lower-casing and trimming.
+3. Normalised title and publication year.
+4. Fuzzy title similarity followed by manual review.
+5. Reconciliation of online-first and issue-assigned versions.
+
+```{r}
+#| label: basic-clean
+
+M_clean <- M |>
+  mutate(
+    DI = na_if(tolower(trimws(DI)), ""),
+    TI = str_squish(TI),
+    AU = str_to_upper(str_squish(AU))
+  )
+
+M_clean <- M_clean[!duplicated(M_clean$DI) | is.na(M_clean$DI), , drop = FALSE]
+title_year <- paste(tolower(trimws(M_clean$TI)), M_clean$PY)
+M_clean <- tibble::as_tibble(
+  M_clean[!duplicated(title_year), , drop = FALSE]
+)
+
+c(before = nrow(M), after = nrow(M_clean))
+```
+
+Never remove records solely because their titles are similar. Protocols, primary reports, secondary analyses, and corrections may share much of a title.
+
+## Keyword coverage
+
+```{r}
+#| label: keyword-coverage
+
+keyword_fields <- c("DE", "ID", "AB")
+
+M_clean |>
+  summarise(
+    across(
+      all_of(keyword_fields),
+      ~ sum(!is.na(.x) & nzchar(trimws(as.character(.x))))
+    )
+  ) |>
+  pivot_longer(everything(), names_to = "field", values_to = "available") |>
+  mutate(
+    total = nrow(M_clean),
+    percent_available = round(100 * available / total, 1)
+  )
+```
+
+Use author keywords (`DE`) as the primary thematic field when coverage and frequency are adequate. Use combined keywords (`KW_Merged`) when author-keyword coverage is insufficient, then repeat the analysis with an alternative field.
+
+```{r}
+#| label: merge-keywords
+
+M_clean <- bibliometrix::mergeKeywords(M_clean, force = TRUE)
+
+merged_keyword_fields <- c("DE", "ID", "KW_Merged")
+
+M_clean |>
+  summarise(
+    across(
+      all_of(merged_keyword_fields),
+      ~ sum(!is.na(.x) & nzchar(trimws(as.character(.x))))
+    )
+  ) |>
+  pivot_longer(everything(), names_to = "field", values_to = "available") |>
+  mutate(
+    total = nrow(M_clean),
+    percent_available = round(100 * available / total, 1)
+  )
+```
+
+## Thesaurus rules
+
+The first term in each semicolon-separated string becomes the canonical term.
+
+```{r}
+fcm_synonyms
+fcm_remove_terms
+```
+
+Merge:
+
+- British and American spellings;
+- singular and plural variants when meaning is unchanged;
+- an unambiguous abbreviation and its full form;
+- verified brand and generic names when required.
+
+Do not merge:
+
+- acute and chronic disease;
+- pregnancy and postpartum populations;
+- efficacy and effectiveness;
+- safety and tolerability without justification;
+- iron deficiency and iron-deficiency anaemia.
+
+## Why query-defining terms are removed from clustering
+
+Every document in this corpus concerns ferric carboxymaltose. The drug name therefore contributes little discrimination and can dominate the network. Removing it from clustering does not remove the document or modify eligibility.
+
+## Author and institution cleaning
+
+Automated disambiguation is provisional. Review leading authors and institutions using affiliations, ORCID identifiers, correspondence details, and known name changes.
+
+Keep a mapping table:
+
+| Raw value | Canonical value | Rule | Reviewer | Status |
+|---|---|---|---|---|
+| `UNIV COLL LONDON` | University College London | Standard abbreviation | NS | Verified |
+| `UCL` | University College London | Affiliation context | NS | Verified |
+
+## Exercise
+
+Review `fcm_synonyms`. Identify at least one mapping that could merge clinically different concepts. Revise it and record the reason.
+

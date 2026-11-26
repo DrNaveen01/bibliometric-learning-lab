@@ -1,0 +1,131 @@
+# Thematic evolution
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Select defensible time periods.
+- Examine theme continuity, emergence, splitting, and merging.
+- Distinguish genuinely emerging themes from sparse or declining themes.
+:::
+
+## Why one map is insufficient
+
+A cross-sectional thematic map combines the entire publication period. A topic that was central in 2010 and disappeared later may still appear prominent. Thematic evolution reconstructs the conceptual field within successive periods and links related themes across time [@cobo2011evolution; @aria2026evolution].
+
+## Choosing periods
+
+Periods should satisfy three conditions:
+
+1. Each period contains enough publications and repeated terms.
+2. Cut-points are specified before viewing preferred results.
+3. The periods have a substantive or distributional rationale.
+
+Possible approaches include equal calendar periods, approximately equal document counts, or clinically meaningful milestones. Do not use annual slices when the network is sparse.
+
+```{r}
+#| label: evolution-counts
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+
+M <- M |>
+  dplyr::mutate(
+    DE = stringr::str_to_upper(stringr::str_squish(DE)),
+    ID = stringr::str_to_upper(stringr::str_squish(ID))
+  )
+
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+
+M |>
+  count(PY) |>
+  arrange(PY)
+```
+
+The teaching example uses cut-points at 2013, 2018, and 2022. These are provisional analytical choices for the synthetic corpus, not universal standards.
+
+## Run thematic evolution
+
+```{r}
+#| label: evolution-run
+
+M_complete <- M |>
+  filter(PY <= 2025)
+
+te <- bibliometrix::thematicEvolution(
+  M = M_complete,
+  field = "KW_Merged",
+  years = c(2013, 2018, 2022),
+  n = 100,
+  minFreq = 3,
+  size = 0.5,
+  ngrams = 1,
+  stemming = FALSE,
+  n.labels = 2,
+  repel = TRUE,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  seed = 20261126
+)
+
+bibliometrix::plotThematicEvolution(
+  te$Nodes,
+  te$Edges,
+  min.flow = 0.10
+)
+```
+
+`minFreq` in `thematicEvolution()` is a minimum term frequency and is not the same argument definition as the lower-case `minfreq` used by `thematicMap()`.
+
+## Interpretation vocabulary
+
+| Pattern | Meaning |
+|---|---|
+| Continuation | A theme remains structurally related across periods |
+| Split | One earlier theme contributes to multiple later themes |
+| Merge | Multiple earlier themes contribute to one later theme |
+| Appearance | A theme has no meaningful predecessor under the chosen threshold |
+| Disappearance | A theme has no meaningful successor |
+
+A split or merge is a network result. It does not establish a clinical mechanism or causal change.
+
+## Emerging versus declining
+
+For a lower-left theme, inspect:
+
+- first and last appearance;
+- annual term frequency;
+- publication count in the most recent complete period;
+- average publication year of representative documents;
+- continuation into the next period;
+- whether missing keywords or terminology changes explain the result.
+
+A new theme should show recent appearance or growth. A declining theme should show earlier prominence followed by reduced activity. A theme with two documents may simply be unstable.
+
+## Complement with term growth
+
+```{r}
+#| label: evolution-term-growth
+
+selected_terms <- c(
+  "heart failure", "pregnancy", "hypophosphataemia",
+  "cost effectiveness", "patient blood management"
+)
+
+term_growth <- M |>
+  select(PY, DE) |>
+  separate_rows(DE, sep = ";") |>
+  mutate(DE = str_to_lower(str_squish(DE))) |>
+  filter(DE %in% selected_terms) |>
+  count(PY, DE)
+
+ggplot(term_growth, aes(PY, n, colour = DE)) +
+  geom_line(linewidth = 0.9) +
+  geom_point() +
+  labs(x = "Year", y = "Keyword occurrences", colour = "Term")
+```
+
+## Exercise
+
+Repeat the evolution analysis using one alternative set of cut-points. Record which lineages are preserved and which are sensitive to period construction.
+

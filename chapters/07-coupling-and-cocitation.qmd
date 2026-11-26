@@ -1,0 +1,127 @@
+# Bibliographic coupling and co-citation
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Distinguish bibliographic coupling from co-citation.
+- Use each technique for the question it actually answers.
+- Interpret clusters using representative documents and references.
+:::
+
+## Core distinction
+
+| Feature | Bibliographic coupling | Co-citation |
+|---|---|---|
+| Link | Two documents share references | Two earlier works are cited together |
+| Main unit | Publications in the corpus | References cited by the corpus |
+| Best use | Current research fronts | Intellectual foundations |
+| Time behaviour | Reference lists are fixed at publication | Co-citation strength can grow with new papers |
+| Classic origin | @kessler1963 | @small1973 |
+
+## Prerequisite
+
+Both analyses require a complete, consistently parsed cited-reference field `CR`. If cited references are missing from a large share of records, the resulting network is selective.
+
+```{r}
+#| label: citation-network-load
+
+source(here::here("R", "00_setup.R"))
+M <- as.data.frame(load_demo_data())
+
+M |>
+  summarise(
+    field = "CR",
+    available = sum(!is.na(CR) & nzchar(trimws(as.character(CR)))),
+    total = n(),
+    percent_available = round(100 * available / total, 1)
+  )
+```
+
+## Document bibliographic coupling
+
+```{r}
+#| label: coupling-run
+
+coupling_matrix <- bibliometrix::biblioNetwork(
+  M,
+  analysis = "coupling",
+  network = "references",
+  sep = ";"
+)
+
+coupling_plot <- bibliometrix::networkPlot(
+  coupling_matrix,
+  normalize = "association",
+  weighted = TRUE,
+  n = min(40, nrow(coupling_matrix)),
+  Title = "Document bibliographic coupling",
+  type = "fruchterman",
+  size = 5,
+  size.cex = TRUE,
+  remove.multiple = FALSE,
+  labelsize = 0.7,
+  community.repulsion = 0,
+  seed = 20261126
+)
+
+coupling_statistics <- bibliometrix::networkStat(coupling_matrix)
+```
+
+Interpret a coupling cluster by reading the titles, abstracts, publication years, shared references, and clinical indications of its leading documents. Do not name a cluster from one highly cited paper.
+
+## Reference co-citation
+
+```{r}
+#| label: cocitation-run
+
+cocitation_matrix <- bibliometrix::biblioNetwork(
+  M,
+  analysis = "co-citation",
+  network = "references",
+  sep = ";"
+)
+
+cocitation_plot <- bibliometrix::networkPlot(
+  cocitation_matrix,
+  normalize = "association",
+  weighted = TRUE,
+  n = min(40, nrow(cocitation_matrix)),
+  Title = "Reference co-citation network",
+  type = "fruchterman",
+  size = 5,
+  size.cex = TRUE,
+  remove.multiple = FALSE,
+  labelsize = 0.7,
+  community.repulsion = 0,
+  seed = 20261126
+)
+
+cocitation_statistics <- bibliometrix::networkStat(cocitation_matrix)
+```
+
+Co-citation clusters may represent foundational trials, measurement traditions, clinical guidelines, or methodological schools. A frequently co-cited paper is influential within the reference structure; it is not automatically high quality.
+
+## Network statistics
+
+```{r}
+#| label: citation-network-statistics
+
+summary(coupling_statistics, k = 10)
+summary(cocitation_statistics, k = 10)
+```
+
+Useful statistics include network size, density, transitivity, centrality, and component structure. Their interpretation depends on the network definition and threshold.
+
+## Validation questions
+
+- Are the cited references consistently formatted?
+- Do clusters remain after normalisation?
+- Are review articles disproportionately central?
+- Are recent documents disadvantaged in co-citation analysis?
+- Do high-degree references correspond to the clinical history of FCM?
+- Are the same research fronts visible in thematic mapping and coupling?
+
+## Exercise
+
+Compare the largest coupling cluster with the most central thematic-map cluster. Explain why the two structures need not be identical.
+

@@ -1,0 +1,461 @@
+---
+title: "Bibliometric Analysis and Science Mapping"
+subtitle: "From bibliographic exports to defensible thematic interpretation"
+author: "Dr Naveen Suthar"
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    transition: fade
+    incremental: false
+    chalkboard: true
+    preview-links: auto
+    footer: "Bibliometric Analysis Learning Lab"
+execute:
+  eval: false
+  echo: true
+bibliography: ../references.bib
+---
+
+## Learning outcomes
+
+By the end, participants should be able to:
+
+- select a method for a bibliometric question;
+- import and audit bibliographic metadata;
+- construct and validate thematic maps;
+- distinguish coupling, co-citation, and collaboration; and
+- report a reproducible analysis without overstating conclusions.
+
+## Bibliometric analysis has two components
+
+### Performance analysis
+
+- Publications
+- Authors
+- Sources
+- Institutions
+- Countries
+- Citations
+
+### Science mapping
+
+- Concepts
+- Intellectual foundations
+- Research fronts
+- Collaboration
+- Evolution
+
+## Match the method to the question
+
+| Question | Method |
+|---|---|
+| What is being published? | Performance analysis |
+| Which concepts co-occur? | Co-word analysis |
+| What are the main themes? | Thematic mapping |
+| How have themes changed? | Thematic evolution |
+| Which current papers are related? | Bibliographic coupling |
+| Which earlier works are jointly influential? | Co-citation |
+| Who works together? | Collaboration network |
+
+## Activity 1
+
+Select the correct method:
+
+1. Identify the intellectual base of FCM heart-failure research.
+2. Determine whether safety research is expanding.
+3. Map collaboration between countries.
+4. Identify current research fronts.
+
+::: {.notes}
+Answers: co-citation; thematic evolution plus term growth; country collaboration; bibliographic coupling.
+:::
+
+## The bibliographic data frame
+
+| Field | Tag |
+|---|---|
+| Authors | `AU` |
+| Title | `TI` |
+| Source | `SO` |
+| Author keywords | `DE` |
+| Indexed keywords | `ID` |
+| Abstract | `AB` |
+| Affiliations | `C1` |
+| Cited references | `CR` |
+| Citations | `TC` |
+| Year | `PY` |
+| DOI | `DI` |
+
+## Import in R
+
+```r
+library(bibliometrix)
+
+M <- bibliometrix::convert2df(
+  "data-raw/scopus_export.bib",
+  dbsource = "scopus",
+  format = "bibtex",
+  remove.duplicates = TRUE
+)
+```
+
+## Essential export rule
+
+Export:
+
+- complete records;
+- abstracts;
+- affiliations;
+- author and indexed keywords;
+- funding metadata; and
+- cited references.
+
+Without `CR`, coupling, co-citation, and historiography are compromised.
+
+## Audit before plotting
+
+```r
+audit_fields <- c("DE", "ID", "AB", "CR", "C1", "DI")
+
+M |>
+  dplyr::summarise(
+    dplyr::across(
+      dplyr::all_of(audit_fields),
+      ~ sum(!is.na(.x) & nzchar(trimws(as.character(.x))))
+    )
+  ) |>
+  tidyr::pivot_longer(
+    dplyr::everything(),
+    names_to = "field",
+    values_to = "available"
+  )
+```
+
+Check:
+
+- missing keywords;
+- missing cited references;
+- missing affiliations;
+- DOI completeness;
+- year range; and
+- duplicate records.
+
+## Cleaning is part of the analysis
+
+Standardise:
+
+- British and American spellings;
+- abbreviations;
+- institution variants;
+- country labels;
+- funder names; and
+- author identities.
+
+Preserve raw values and the mapping dictionary.
+
+## Do not merge distinct clinical concepts
+
+- Pregnancy ≠ postpartum
+- Iron deficiency ≠ iron-deficiency anaemia
+- Acute heart failure ≠ chronic heart failure
+- Efficacy ≠ effectiveness
+- Adverse events ≠ tolerability
+
+## Performance analysis
+
+```r
+results <- bibliometrix::biblioAnalysis(M, sep = ";")
+summary(results, k = 20, pause = FALSE)
+```
+
+Use for output, sources, authors, countries, and citations.
+
+## Citation caution
+
+Citation count reflects influence within a database and time window.
+
+It does not directly measure:
+
+- risk of bias;
+- treatment effectiveness;
+- methodological quality; or
+- clinical importance.
+
+## Co-word analysis
+
+Terms are linked when they appear in the same documents.
+
+Communities of linked terms become provisional themes.
+
+## Thematic map axes
+
+| Axis | Interpretation |
+|---|---|
+| Centrality | External connection with other themes |
+| Density | Internal cohesion of the theme |
+| Bubble size | Fuzzy theme cardinality |
+
+## Four quadrants
+
+| Position | Theme type |
+|---|---|
+| Upper right | Motor |
+| Lower right | Basic or transversal |
+| Upper left | Niche |
+| Lower left | Emerging, declining, weak, or noisy |
+
+## Lower-left does not mean emerging
+
+Check:
+
+- first and last appearance;
+- recent frequency;
+- average publication year;
+- continuation to the next period;
+- keyword completeness; and
+- terminology changes.
+
+## Construct a thematic map
+
+```r
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+
+tm <- bibliometrix::thematicMap(
+  M,
+  field = "KW_Merged",
+  n = 100,
+  minfreq = 5,
+  community.repulsion = 0,
+  remove.terms = fcm_remove_terms,
+  synonyms = fcm_synonyms,
+  cluster = "louvain",
+  seed = 20261126
+)
+
+tm$map
+```
+
+## Inspect before naming
+
+```r
+tm$clusters
+tm$words |>
+  dplyr::arrange(
+    Cluster,
+    dplyr::desc(Cluster_PageRank),
+    dplyr::desc(Occurrences)
+  ) |>
+  dplyr::group_by(Cluster, Cluster_Label) |>
+  dplyr::slice_head(n = 10) |>
+  dplyr::ungroup()
+tm$documentToClusters
+```
+
+Use leading terms and high-membership documents to assign the final label.
+
+## Validation rule
+
+Every theme needs:
+
+- top terms;
+- representative publications;
+- clinical interpretation;
+- quadrant classification;
+- two-reviewer label decision; and
+- sensitivity result.
+
+## Sensitivity analysis
+
+Vary:
+
+- `DE` versus `KW_Merged`;
+- 75, 100, and 150 retained terms;
+- frequency thresholds;
+- Louvain versus Leiden; and
+- time-period cut-points.
+
+Stable interpretation matters more than an attractive figure.
+
+## Thematic evolution
+
+```r
+te <- bibliometrix::thematicEvolution(
+  M,
+  field = "KW_Merged",
+  years = c(2013, 2018, 2022),
+  n = 100,
+  minFreq = 3,
+  cluster = "louvain",
+  seed = 20261126
+)
+```
+
+## Evolution patterns
+
+- Continuation
+- Appearance
+- Disappearance
+- Split
+- Merge
+
+These are structural patterns, not causal mechanisms.
+
+## Bibliographic coupling
+
+Two corpus documents are coupled when they share references.
+
+Use it to identify current research fronts [@kessler1963].
+
+```r
+bc <- bibliometrix::biblioNetwork(
+  M,
+  analysis = "coupling",
+  network = "references"
+)
+```
+
+## Co-citation
+
+Two earlier works are co-cited when later documents cite them together.
+
+Use it to identify intellectual foundations [@small1973].
+
+```r
+cc <- bibliometrix::biblioNetwork(
+  M,
+  analysis = "co-citation",
+  network = "references"
+)
+```
+
+## Coupling versus co-citation
+
+| Coupling | Co-citation |
+|---|---|
+| Corpus documents | Cited references |
+| Shared references | Joint later citations |
+| Current fronts | Intellectual base |
+| Fixed relation | Can grow over time |
+
+## Collaboration networks
+
+```r
+country_net <- bibliometrix::biblioNetwork(
+  M,
+  analysis = "collaboration",
+  network = "countries"
+)
+```
+
+Affiliation country is not recruitment country.
+
+## Whole and fractional counting
+
+For a paper with four countries:
+
+- Whole counting: each country receives 1.
+- Fractional counting: each country receives 0.25.
+
+Report the counting method.
+
+## Historiography
+
+```r
+hist <- bibliometrix::histNetwork(M, sep = ";")
+bibliometrix::histPlot(hist, n = 25)
+```
+
+Direct citations show a chronological pathway through the selected corpus.
+
+## Clinical overlay
+
+Join graded theme membership with:
+
+- indication;
+- population;
+- study design;
+- recruitment geography;
+- funding type; and
+- study focus.
+
+## Weighted theme summary
+
+```r
+theme_columns <- intersect(
+  tm$clusters$name,
+  names(tm$documentToClusters)
+)
+
+tm$documentToClusters |>
+  dplyr::select(SR, dplyr::all_of(theme_columns)) |>
+  tidyr::pivot_longer(
+    cols = dplyr::all_of(theme_columns),
+    names_to = "theme",
+    values_to = "membership"
+  ) |>
+  dplyr::left_join(
+    M |> dplyr::select(SR, INDICATION),
+    by = "SR"
+  ) |>
+  dplyr::group_by(theme, INDICATION) |>
+  dplyr::summarise(
+    weighted_documents = sum(membership, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+This integrates computational themes with reviewer-coded clinical content.
+
+## Funding caution
+
+Unreported funding is not the same as no funding.
+
+Separate:
+
+- financial support;
+- drug supply;
+- sponsor responsibilities;
+- author financial relationships; and
+- registry sponsorship.
+
+## Reproducibility minimum
+
+Retain:
+
+- raw exports;
+- search log;
+- cleaning dictionaries;
+- exact parameters;
+- seeds;
+- package versions;
+- derived membership tables; and
+- reviewer decisions.
+
+## Reporting framework
+
+- BIBLIO for preliminary bibliometric reporting guidance [@montazeri2023].
+- PRISMA-S for applicable search-reporting elements [@rethelefsen2021].
+- Study-specific protocol for eligibility, coding, and analysis decisions.
+
+## Final activity
+
+For one network figure, state:
+
+1. the nodes;
+2. the edges;
+3. the threshold;
+4. the normalisation;
+5. the clustering method;
+6. the supported conclusion; and
+7. one unsupported conclusion.
+
+## Take-home sequence
+
+**Question → data audit → cleaning → performance → thematic map → evolution → coupling/co-citation → collaboration → clinical overlay → validation → reporting**
+
+## References
+
+::: {#refs}
+:::
+

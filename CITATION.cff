@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this teaching project, cite it as follows."
+title: "Bibliometric Analysis Learning Lab"
+type: software
+authors:
+  - family-names: "Suthar"
+    given-names: "Naveen"
+version: 0.2.0
+date-released: 2026-11-27
+license: MIT
+

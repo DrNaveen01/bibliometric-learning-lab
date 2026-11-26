@@ -1,0 +1,107 @@
+# Data sources, export, and import
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Identify the metadata required for each analysis.
+- Import Scopus and Web of Science records using `convert2df()`.
+- Preserve raw data and document database provenance.
+:::
+
+## Database choice determines the analytical universe
+
+Citation counts, cited references, indexed keywords, affiliations, and database coverage differ across sources. Select one primary database for citation-based analyses unless a prespecified multi-database method is used.
+
+For a biomedical project, PubMed is valuable for a coverage check but normally does not provide an identical citation network to Scopus or Web of Science. Do not silently combine citation counts from different systems.
+
+## Minimum export fields
+
+| Field | Typical tag | Required for |
+|---|---|---|
+| Authors | `AU`, `AF` | Productivity and collaboration |
+| Title | `TI` | Screening, deduplication, text mining |
+| Source | `SO`, `JI` | Journal analysis |
+| Year | `PY` | Trends and time slicing |
+| Author keywords | `DE` | Primary thematic analysis |
+| Indexed keywords | `ID` | Coverage and sensitivity analysis |
+| Abstract | `AB` | Screening and text mining |
+| Affiliations | `C1` | Institution and country analysis |
+| Cited references | `CR` | Coupling, co-citation, historiography |
+| Citation count | `TC` | Performance analysis |
+| DOI | `DI` | Deduplication and linkage |
+| Database identifier | `UT` | Traceability |
+
+Export complete records with cited references. A file without `CR` cannot support defensible coupling, co-citation, or historiographic analysis.
+
+## Import templates
+
+```r
+library(bibliometrix)
+
+# Scopus BibTeX
+M_scopus <- bibliometrix::convert2df(
+  file = "data-raw/scopus_export.bib",
+  dbsource = "scopus",
+  format = "bibtex",
+  remove.duplicates = TRUE
+)
+
+# Web of Science plain text
+M_wos <- bibliometrix::convert2df(
+  file = "data-raw/savedrecs.txt",
+  dbsource = "wos",
+  format = "plaintext",
+  remove.duplicates = TRUE
+)
+```
+
+The complete template is stored in `R/02_import_real_data.R`.
+
+## Merge only under a defined protocol
+
+```r
+M_merged <- bibliometrix::mergeDbSources(
+  M_scopus,
+  M_wos,
+  remove.duplicated = TRUE
+)
+```
+
+Record database provenance before merging. Citation analyses should use one declared citation source because database-specific counts and cited-reference coverage are not interchangeable.
+
+## Load the teaching data
+
+```{r}
+#| label: import-demo
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+
+cat("Documents:", nrow(M), "\n")
+cat("Years:", min(M$PY), "to", max(M$PY), "\n")
+cat("Fields:", ncol(M), "\n")
+```
+
+## Search and export log
+
+Maintain a table containing:
+
+| Item | Required detail |
+|---|---|
+| Database | Scopus, Web of Science Core Collection, or other source |
+| Platform | Exact interface used |
+| Search date | Date and time zone |
+| Search string | Complete field-specific query |
+| Coverage | Database inception to final search date |
+| Filters | Language, document type, year, or none |
+| Export format | BibTeX, plain text, CSV, or API object |
+| Fields | Full record, cited references, funding, abstract |
+| Batches | Number and size of exported batches |
+| Record count | Before and after merging |
+
+PRISMA-S provides useful principles for transparent search reporting [@rethelefsen2021].
+
+## Exercise
+
+Inspect the names of `M`. For each planned analysis, list the required fields and determine whether the analysis remains possible if one field is missing.
+

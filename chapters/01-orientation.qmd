@@ -1,0 +1,82 @@
+# Orientation and analytical logic
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Distinguish performance analysis from science mapping.
+- Select a method according to the research question.
+- Identify which decisions can be automated and which require reviewers.
+:::
+
+## Two parts of bibliometric analysis
+
+Bibliometric analysis contains two related but different components.
+
+**Performance analysis** describes the contribution and impact of scientific actors. Typical units are publications, authors, journals, institutions, countries, and citations.
+
+**Science mapping** examines relationships among bibliographic units. It represents the conceptual, intellectual, or social structure of a field using networks and clusters [@aria2017; @cobo2011tools].
+
+| Research question | Unit or relation | Primary method |
+|---|---|---|
+| How has publication output changed? | Publications by year | Performance analysis |
+| What concepts occur together? | Keyword co-occurrence | Co-word analysis |
+| What are the major themes? | Communities of co-occurring terms | Thematic mapping |
+| How have themes changed? | Theme lineages across periods | Thematic evolution |
+| Which recent papers address similar fronts? | Shared references | Bibliographic coupling |
+| Which older works form the intellectual base? | Co-cited references | Co-citation |
+| Who works with whom? | Co-authorship | Collaboration network |
+| How did knowledge develop chronologically? | Direct citations | Historiography |
+
+## What R can execute
+
+R can import, clean, summarise, map, cluster, visualise, test sensitivity, and export results. It can also select highly representative terms and documents.
+
+R cannot independently determine:
+
+- whether the search retrieved the intended evidence;
+- whether two clinical terms are true synonyms;
+- whether an automatic cluster label is clinically valid;
+- whether a lower-left theme is emerging or declining;
+- whether an apparent research gap represents a clinical priority; or
+- whether missing funding metadata means that a study was unfunded.
+
+## The learning corpus
+
+```{r}
+#| label: orientation-load
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data()
+
+dim(M)
+M |> select(AU, TI, SO, PY, DE, CR, INDICATION, FUNDING_TYPE) |> head(3)
+```
+
+The dataset contains bibliographic fields used by `bibliometrix` and additional clinical fields used for content overlays. `REFERENCE_THEME` is an instructor answer key, not a variable that should be available in a real analysis.
+
+## Recommended analytical sequence
+
+1. Fix the review question and eligibility criteria.
+2. Search and export complete bibliographic metadata.
+3. Preserve raw files and create a search log.
+4. Convert records into a bibliographic data frame.
+5. Audit missing fields and duplicates.
+6. Standardise authors, institutions, countries, keywords, and funders.
+7. Run descriptive performance analysis.
+8. Construct thematic and citation-based maps.
+9. Validate clusters using terms and representative publications.
+10. Repeat key analyses under alternative defensible parameters.
+11. Report methods, parameters, missingness, limitations, and package versions.
+
+## Teaching activity
+
+Give learners five research questions and ask them to choose the appropriate method. Require them to name the unit of analysis and the relationship being measured.
+
+### Self-check
+
+1. Does a keyword co-occurrence network measure citation influence?
+2. Does a co-citation cluster necessarily represent a current research front?
+3. Can a collaboration network establish that two authors contributed equally?
+
+**Answers:** No. No. No. Each method measures a specific bibliographic relation and must be interpreted within that relation.
+

@@ -1,0 +1,111 @@
+# Capstone: complete FCM bibliometric analysis
+
+## Scenario
+
+Conduct a reproducible bibliometric analysis of the synthetic FCM corpus. The capstone must answer:
+
+1. How did publication output and clinical composition change through 2025?
+2. What conceptual themes are present?
+3. How did those themes evolve?
+4. Which current research fronts and intellectual foundations are identifiable?
+5. Which countries collaborate, and how do whole and fractional counts differ?
+6. How are themes distributed across clinical indications and funding categories?
+
+## Required workflow
+
+### Stage 1: Data audit
+
+- Load the corpus.
+- Report dimensions and year range.
+- Quantify completeness of `DE`, `ID`, `AB`, `CR`, `C1`, and `DI`.
+- Check duplicate DOI and title-year combinations.
+- Produce the final analytical flow count.
+
+### Stage 2: Cleaning
+
+- Review the synonym and removal dictionaries.
+- Record every change.
+- Create `KW_Merged`.
+- State the primary thematic field and justify it.
+
+### Stage 3: Performance analysis
+
+- Annual output.
+- Indication distribution by period.
+- Leading journals and countries.
+- Raw and age-normalised citation tables.
+
+### Stage 4: Science mapping
+
+- Primary thematic map.
+- Alternative field or clustering sensitivity map.
+- Thematic evolution.
+- Bibliographic coupling.
+- Reference co-citation.
+- Country collaboration.
+- Direct-citation historiography.
+
+### Stage 5: Validation and integration
+
+- Manually name every retained theme.
+- List leading terms and representative publications.
+- Produce theme-by-indication and theme-by-funding heatmaps.
+- Identify results that are sensitive to parameter choices.
+
+### Stage 6: Reporting
+
+- Methods with exact parameters.
+- Results linked to each objective.
+- Interpretation separated from evidence.
+- Limitations and reproducibility statement.
+- `sessionInfo()` and parameter register.
+
+## Required deliverables
+
+1. Quarto report.
+2. Clean R scripts.
+3. Cleaning dictionary.
+4. Parameter register.
+5. Six to eight final figures.
+6. Five core analytical tables.
+7. Theme-validation table.
+8. Ten-minute presentation.
+
+## Assessment rubric
+
+| Domain | Marks |
+|---|---:|
+| Reproducible data preparation | 15 |
+| Metadata audit and cleaning | 15 |
+| Correct method selection | 15 |
+| Thematic map and evolution | 20 |
+| Coupling, co-citation, and collaboration | 15 |
+| Clinical overlay and validation | 10 |
+| Interpretation and limitations | 5 |
+| Reporting and presentation | 5 |
+| **Total** | **100** |
+
+## Distinction standard
+
+A distinction-level submission does not merely produce plots. It documents how the network was constructed, shows parameter sensitivity, verifies clusters using publications, distinguishes bibliometric relations, and limits conclusions to what the selected corpus can support.
+
+## Starting script
+
+```r
+source(here::here("R", "00_setup.R"))
+
+M <- load_demo_data()
+M <- M |>
+  mutate(
+    DI = na_if(tolower(trimws(DI)), ""),
+    TI = str_squish(TI),
+    AU = str_to_upper(str_squish(AU))
+  )
+M <- M[!duplicated(M$DI) | is.na(M$DI), , drop = FALSE]
+title_year <- paste(tolower(trimws(M$TI)), M$PY)
+M <- tibble::as_tibble(M[!duplicated(title_year), , drop = FALSE])
+M <- bibliometrix::mergeKeywords(M, force = TRUE)
+
+# Continue the audit and analyses here.
+```
+

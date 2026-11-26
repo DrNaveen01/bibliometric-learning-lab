@@ -1,0 +1,123 @@
+# Performance analysis
+
+::: {.learning-objectives}
+**Learning objectives**
+
+- Produce the main descriptive bibliometric indicators.
+- Distinguish productivity from citation impact.
+- Account for unequal citation windows.
+:::
+
+## Main summary
+
+```{r}
+#| label: performance-load
+
+source(here::here("R", "00_setup.R"))
+M <- load_demo_data() |>
+  mutate(
+    DI = na_if(tolower(trimws(DI)), ""),
+    TI = str_squish(TI),
+    AU = str_to_upper(str_squish(AU))
+  )
+
+M <- M[!duplicated(M$DI) | is.na(M$DI), , drop = FALSE]
+title_year <- paste(tolower(trimws(M$TI)), M$PY)
+M <- tibble::as_tibble(M[!duplicated(title_year), , drop = FALSE])
+
+results <- bibliometrix::biblioAnalysis(M, sep = ";")
+summary_results <- summary(results, k = 15, pause = FALSE)
+```
+
+`biblioAnalysis()` provides publication counts, authorship, source, country, and citation summaries. These describe the corpus but do not explain why a paper or actor is influential.
+
+## Annual scientific production
+
+```{r}
+#| label: annual-production
+
+annual_output <- M |>
+  count(PY, name = "publications")
+
+ggplot(annual_output, aes(PY, publications)) +
+  geom_col(fill = "#2c7fb8") +
+  scale_x_continuous(breaks = pretty_breaks()) +
+  labs(
+    x = "Publication year",
+    y = "Number of publications",
+    title = "Annual FCM research output"
+  )
+```
+
+Do not combine an incomplete current year with complete historical years without marking it clearly.
+
+## Clinical composition over time
+
+```{r}
+#| label: indication-over-time
+
+M |>
+  count(PY, INDICATION) |>
+  group_by(PY) |>
+  mutate(percent = 100 * n / sum(n)) |>
+  ungroup() |>
+  ggplot(aes(PY, percent, fill = INDICATION)) +
+  geom_area(position = "stack") +
+  labs(
+    x = "Publication year",
+    y = "Percentage of annual publications",
+    fill = "Indication",
+    title = "Changing clinical composition of the corpus"
+  )
+```
+
+Counts answer how much was published. Percentages answer how the composition of the corpus changed. Report both when the total annual output changes substantially.
+
+## Citation-window adjustment
+
+Older publications have had more time to accumulate citations.
+
+```{r}
+#| label: citation-normalisation
+
+M_citations <- M |>
+  mutate(
+    citation_window = pmax(1, 2025 - PY + 1),
+    citations_per_year = TC / citation_window
+  ) |>
+  group_by(PY) |>
+  mutate(
+    year_mean_tc = mean(TC, na.rm = TRUE),
+    mean_normalised_tc = if_else(
+      year_mean_tc > 0,
+      TC / year_mean_tc,
+      NA_real_
+    )
+  ) |>
+  ungroup()
+
+M_citations |>
+  arrange(desc(citations_per_year)) |>
+  select(SR, PY, TC, citation_window, citations_per_year, mean_normalised_tc) |>
+  head(10)
+```
+
+Report the citation snapshot date and database. Avoid describing raw citation counts as study quality or clinical importance.
+
+## Indicators worth retaining
+
+- Annual publication count.
+- Document-type distribution.
+- Most relevant sources.
+- Country and institution output.
+- Total and fractional publication counts.
+- Local and global citation counts.
+- Citations per year or field/year-normalised citations.
+- Missing citation and affiliation metadata.
+
+Indicators such as Lotka's law, Bradford's law, and raw h-index rankings may be supplementary. They should not displace analyses linked to the research objectives.
+
+## Exercise
+
+Identify the ten papers with the highest raw citations and the ten with the highest citations per year. Explain why the lists differ.
+
