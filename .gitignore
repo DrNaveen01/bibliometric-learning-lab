@@ -12,7 +12,7 @@ outputs/figures/*
 outputs/tables/*
 !outputs/figures/.gitkeep
 !outputs/tables/.gitkeep
-
+!*.html
 
 /.quarto/
 **/*.quarto_ipynb
